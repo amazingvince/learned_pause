@@ -1,0 +1,6 @@
+wandb
+transformers
+accelerate
+datasets
+sentencepiece
+tlr
