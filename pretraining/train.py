@@ -9,12 +9,13 @@ os.environ["WANDB_PROJECT"] = "learned_pause_token"
 
 # Define the <pause> token
 PAUSE_TOKEN = "<pause>"
-seed = 42
-model_name = "BEE-spoke-data/smol_llama-220M-GQA"
+seed = 6969
+model_name = "Qwen/Qwen2-1.5B"
 
 # Modify tokenizer to include the <pause> token
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 tokenizer.add_special_tokens({"additional_special_tokens": [PAUSE_TOKEN]})
+tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
 PAUSE_TOKEN_ID = tokenizer.convert_tokens_to_ids(PAUSE_TOKEN)
 
@@ -75,7 +76,7 @@ def custom_data_collator(features):
         raise ValueError("No valid text found in features.")
     
     modified_texts = [insert_pause_tokens(text) for text in texts]
-    batch = tokenizer(modified_texts, padding=True, truncation=True, return_tensors="pt", max_length=2048)
+    batch = tokenizer(modified_texts, padding=True, truncation=True, return_tensors="pt", max_length=1028)
     
     # Ensure input_ids are long integers, but keep them on CPU
     # batch["input_ids"] = batch["input_ids"].to(torch.long)
@@ -83,7 +84,7 @@ def custom_data_collator(features):
     # # Create labels, ignoring loss for <pause> tokens
     labels = batch["input_ids"].clone()
     # pause_token_id = tokenizer.convert_tokens_to_ids(PAUSE_TOKEN)
-    # labels[labels == PAUSE_TOKEN_ID] = -100  # -100 is ignored in loss calculation
+    labels[labels == PAUSE_TOKEN_ID] = -100  # -100 is ignored in loss calculation
     
     # Shift labels
     labels = torch.roll(labels, -1, dims=1)
@@ -107,7 +108,7 @@ class CustomIterableDataset(IterableDataset):
                 print(f"Skipping item: {item}")  # Debug print
 
 # Load your model
-model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16)
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16, attn_implementation="flash_attention_2")
 model.resize_token_embeddings(len(tokenizer))
 
 # # Ensure model parameters have consistent dtype
@@ -116,9 +117,9 @@ model.resize_token_embeddings(len(tokenizer))
 
 # Define training arguments
 training_args = TrainingArguments(
-    output_dir="./results",
-    per_device_train_batch_size=8,
-    # gradient_accumulation_steps=4,
+    output_dir="./results2",
+    per_device_train_batch_size=1,
+    gradient_accumulation_steps=16,
     save_steps=1000,
     save_total_limit=2,
     report_to="wandb",
