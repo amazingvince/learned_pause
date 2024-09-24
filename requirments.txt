@@ -3,4 +3,4 @@ transformers
 accelerate
 datasets
 sentencepiece
-tlr
+trl
